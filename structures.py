@@ -15,6 +15,7 @@ class Flight(object):
     _ids = count(0)
 
     def __init__(self, aircraft, destination, dep_time): # max_velocity ?
+
         self.id = next(self._ids)               # flight id, unique identifier
         self.aircraft_id = aircraft.id          # aircraft id
         self.callsign = aircraft.callsign       # flight callsign
@@ -25,7 +26,7 @@ class Flight(object):
         self.distance = float(self.dep_airport.distance(self.arr_airport)) # distance between departure and arrival airports
 
         if aircraft.location==destination:
-            self.duration=timedelta(hours=0.5)
+            self.duration=timedelta(hours=0.5).days/24
         else:
             self.duration = float(self.distance / aircraft.avg_speed)      # flight duration in hours
         self.arr_time = time_add([self.dep_time, self.duration])
@@ -49,9 +50,27 @@ class Flight(object):
         string += " Arrival:"+' '*(15-len(self.arr_airport.icao))+self.arr_airport.icao+' '*5+str(self.arr_time)+"\n"
         return string
 
+    """
+    def __copy__(self):
+        print('copying')
+        new_flight = Flight(copy=True)
+        new_flight.id = self.id
+        new_flight.aircraft_id = self.aircraft_id
+        new_flight.callsign = self.callsign
+        new_flight.icao = self.icao
+        new_flight.dep_airport = self.dep_airport
+        new_flight.dep_time = self.dep_time
+        new_flight.arr_airport = self.arr_airport
+        new_flight.arr_time = self.arr_time
+        new_flight.distance = self.distance
+        new_flight.duration = self.duration
+        return new_flight
+    """
+
 class Aircraft(object):
     _ids = count(0)
-    def __init__(self, callsign, icao, location, birth=default_start, avg_speed=660): # max_velocity
+    def __init__(self, callsign, icao, location, birth=default_start, \
+        avg_speed=660, next_update=None): # max_velocity
         self.id = next(self._ids)       # global aircraft id, unmutable
         self.callsign = callsign        # callsign currently assigned to aircraft
         self.icao = icao                # icao currently assigned to aircraft
@@ -60,6 +79,7 @@ class Aircraft(object):
         self.history = list()           # history of flights and groundings
         self.flights = list()
         self.birth=birth
+        self.next_update=next_update
         location.aircraft_arrival(self, self.birth)
 
     def __str__(self):
