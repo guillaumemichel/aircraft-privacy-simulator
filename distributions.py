@@ -1,7 +1,7 @@
 from structures import *
 
 modes=['random']
-policies=['no_privacy', '60-days', '20-days', 'max_privacy']
+policies=['no_privacy','60-days', '20-days', 'callsign-change', 'max_privacy']
 
 class Distribution(object):
 
@@ -55,12 +55,13 @@ class Distribution(object):
         return callsign
 
     def update_aircraft(self, aircraft, time):
-        if self.policy==policies[-1] or self.policy in policies[1:-1] and aircraft.next_update <= time:
+        if self.policy in policies[-2:] or self.policy in policies[1:3] and aircraft.next_update <= time:
             aircraft.callsign = self.new_callsign(aircraft.callsign)
-            aircraft.icao = get_icao(aircraft.icao)
-            if self.policy!=policies[-1]: # max_privacy
-                while aircraft.next_update <= time: 
-                    aircraft.next_update = time_add([aircraft.next_update, timedelta(days=self.update_freq)])
+            if self.policy in policies[1:3] or self.policy == policies[-1]:
+                aircraft.icao = get_icao(aircraft.icao)
+                if self.policy!=policies[-1]: # max_privacy
+                    while aircraft.next_update <= time: 
+                        aircraft.next_update = time_add([aircraft.next_update, timedelta(days=self.update_freq)])
             return True
         return False
 
@@ -97,5 +98,7 @@ class Distribution(object):
             while time < until:
                 flights.append(self.new_flight(time=time))
                 time = time_add([time, self.flight_frequency])
+            for a in self.aircraft:
+                a.end_sim(time)
             return flights
                 

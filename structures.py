@@ -50,23 +50,6 @@ class Flight(object):
         string += " Arrival:"+' '*(15-len(self.arr_airport.icao))+self.arr_airport.icao+' '*5+str(self.arr_time)+"\n"
         return string
 
-    """
-    def __copy__(self):
-        print('copying')
-        new_flight = Flight(copy=True)
-        new_flight.id = self.id
-        new_flight.aircraft_id = self.aircraft_id
-        new_flight.callsign = self.callsign
-        new_flight.icao = self.icao
-        new_flight.dep_airport = self.dep_airport
-        new_flight.dep_time = self.dep_time
-        new_flight.arr_airport = self.arr_airport
-        new_flight.arr_time = self.arr_time
-        new_flight.distance = self.distance
-        new_flight.duration = self.duration
-        return new_flight
-    """
-
 class Aircraft(object):
     _ids = count(0)
     def __init__(self, callsign, icao, location, birth=default_start, \
@@ -80,6 +63,8 @@ class Aircraft(object):
         self.flights = list()
         self.birth=birth
         self.next_update=next_update
+        self.initial_icao=icao
+        self.initial_callsign=callsign
         location.aircraft_arrival(self, self.birth)
 
     def __str__(self):
@@ -132,6 +117,18 @@ class Aircraft(object):
         for f in self.flights:
             string += f.aircraft_string()+'\n'
         print(string[:-1])
+
+    def icao_at(self, time):
+        if len(self.flights)==0:
+            return None
+        tmp=None
+        for f in self.flights:
+            if f.dep_time > time:
+                break
+            tmp=f
+        if tmp is None:
+            return self.initial_icao
+        return tmp.icao
 
 def new_aircraft(airports, birth=default_start, callsign='DCM', icao=None, avg_speed=660):
     # returns a new aircraft, with random airport, icao, callsign etc.
@@ -210,6 +207,9 @@ class AirportHistoryElement(object):
         self.arr_icao=record[2]
         self.dep_callsign=aircraft.callsign
         self.dep_icao=aircraft.icao
+    
+    def __str__(self):
+        return str(self.aircraft.id)+' '+str(self.arrival_time)+'-'+str(self.departure_time)+' '+self.arr_callsign+'-'+self.dep_callsign+' '+self.arr_icao+'-'+self.dep_icao
 
 class Airports(object):
     def emtpy(self):
@@ -223,6 +223,10 @@ class Airports(object):
         for a in self.elements:
             tostr+=str(a)
         return tostr
+
+    def first(self, n):
+        self.elements=self.elements[:n]
+        return self
 
     def append(self, el):
         self.elements.append(el)
