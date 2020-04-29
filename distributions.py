@@ -5,8 +5,10 @@ policies=['no_privacy','60-days', '20-days', 'callsign-change', 'max_privacy']
 
 class Distribution(object):
 
+    # flight information accuracy (departure/arrival)
     def __init__(self, mode, policy, airports, n_aircraft, callsigns=['DCM'], \
-            start_time=default_start, flight_frequency=timedelta(minutes=15)):
+            start_time=default_start, flight_frequency=timedelta(minutes=15), \
+            n_categories=1, accuracy=1):
         random.seed('privacy')
 
         if mode not in modes:
@@ -24,6 +26,8 @@ class Distribution(object):
         self.callsigns=callsigns
         self.start_time=start_time
         self.flight_frequency=flight_frequency
+        self.categories=n_categories
+        self.accuracy=accuracy
 
         self.assigned_callsigns=set()
         self.aircraft=list()
@@ -72,7 +76,8 @@ class Distribution(object):
             callsign = self.new_callsign(self.callsigns[random.randint(0, len(self.callsigns)-1)])
             icao = get_icao()
             next_update=self.initial_next_update()
-            self.aircraft.append(Aircraft(callsign=callsign, icao=icao, location=location, birth=self.start_time, next_update=next_update))
+            self.aircraft.append(Aircraft(callsign=callsign, icao=icao, location=location,\
+                birth=self.start_time, next_update=next_update, cat=random.randint(0,self.categories)))
 
     def get_random_on_ground(self, time):
         # return a random aircraft from the set that is on ground 
@@ -90,10 +95,10 @@ class Distribution(object):
 
     def run(self, duration, time=None):
         if time is None:
-            time=self.start_time
+            time=time_add([self.start_time, self.flight_frequency])
         if self.mode == modes[0]:
             # random mode
-            until = time_add([time, duration])
+            until = time_add([time, duration, self.flight_frequency])
             flights=list()
             while time < until:
                 flights.append(self.new_flight(time=time))

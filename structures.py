@@ -53,12 +53,13 @@ class Flight(object):
 class Aircraft(object):
     _ids = count(0)
     def __init__(self, callsign, icao, location, birth=default_start, \
-        avg_speed=660, next_update=None): # max_velocity
+        avg_speed=660, next_update=None, cat=0): # max_velocity
         self.id = next(self._ids)       # global aircraft id, unmutable
         self.callsign = callsign        # callsign currently assigned to aircraft
         self.icao = icao                # icao currently assigned to aircraft
         self.location = location        # current aircraft location (airport or 'flying')
         self.avg_speed = avg_speed      # average speed in km/h of the aircraft (constant for now)
+        self.cat=cat                    # aircraft category
         self.history = list()           # history of flights and groundings
         self.flights = list()
         self.birth=birth
