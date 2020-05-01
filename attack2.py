@@ -5,13 +5,17 @@ from matplotlib import pyplot as plt
 
 sys.setrecursionlimit(10000)
 
-n_aircraft=500 # 1062 available icaos in total
+intervals=30 # in minutes
+searchWindow=30*24*60/intervals
+
+n_aircraft=1000 # 1062 available icaos in total or parameter range in structures.py
 airports=airports_from_file('large').first(100)
-flight_frequency=timedelta(minutes=30)
+flight_frequency=timedelta(minutes=intervals)
 n_categories=10
 mode='random'
 policy='20-days' # no_privacy, callsign-change, 60-days, 20-days, max_privacy
-simlength=timedelta(days=90)
+simlength=timedelta(days=365)
+
 
 debug=False
 
@@ -37,7 +41,8 @@ def generic_attack(correct_flights):
 
     # attack mode
     future_flights=True
-    side_channel=10 # None
+    side_channel=None # None
+    categories=True
 
     # init our dicts
     ids=dict()
@@ -58,10 +63,23 @@ def generic_attack(correct_flights):
             # add mapping
             mapping[correct_flights[i].aircraft_id]=ids[f.icao]
         else:
+            if len(old_icaos)==0:
+                print('error',i)
+
             if future_flights and len(old_icaos)>0:
+
+                if categories:
+                    # attack on targetting aircraft category
+                    j=i
+                    while j>0 and j>i-searchWindow and len(old_icaos)>1:
+                        j-=1
+                        if flights[j].icao in old_icaos and flights[j].arr_airport == f.dep_airport \
+                                and f.aircraft_cat != flights[j].aircraft_cat:
+                            old_icaos.remove(flights[j].icao)
+
                 # reduce old_icao by removing icao flying from the target airport in a close future
                 furthest=None
-                for j in range(i, len(flights)):
+                for j in range(i, int(min(i+searchWindow, len(flights)))):
                     # iterate on future flights
                     if len(old_icaos)==0:
                         # if empty list, break with only the furthest flight in time
@@ -79,12 +97,13 @@ def generic_attack(correct_flights):
                                 furthest=f2
                             old_icaos.remove(f2.icao)
 
+            # side channel attack improvement
             if side_channel is not None:
                 cst=100
                 # get correct old icao
                 correct_icao=None
                 j=i
-                while j>0:
+                while j>0 and j>i-searchWindow:
                     j-=1
                     if correct_flights[i].aircraft_id == correct_flights[j].aircraft_id:
                         correct_icao=correct_flights[j].icao

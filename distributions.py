@@ -82,8 +82,13 @@ class Distribution(object):
     def get_random_on_ground(self, time):
         # return a random aircraft from the set that is on ground 
         a = self.aircraft[random.randint(0, len(self.aircraft)-1)]
-        while not a.on_ground(time):
+        c=0
+        while not a.on_ground(time) and c < 1000:
             a = self.aircraft[random.randint(0, len(self.aircraft)-1)]
+            c+=1
+        if c>=1000:
+            print('not enought aircraft, sorry')
+            sys.exit(1)
         return a
 
     def new_flight(self, time):

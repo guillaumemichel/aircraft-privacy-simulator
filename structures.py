@@ -14,12 +14,13 @@ avail_icaos = list()
 class Flight(object):
     _ids = count(0)
 
-    def __init__(self, aircraft, destination, dep_time): # max_velocity ?
+    def __init__(self, aircraft, destination, dep_time, category): # max_velocity ?
 
         self.id = next(self._ids)               # flight id, unique identifier
         self.aircraft_id = aircraft.id          # aircraft id
         self.callsign = aircraft.callsign       # flight callsign
         self.icao = aircraft.icao               # flight icao
+        self.aircraft_cat=category              # aircraft type
         self.dep_airport = aircraft.location    # departure airport icao address
         self.arr_airport = destination          # arrival airport icao address
         self.dep_time = dep_time                # departure time
@@ -79,7 +80,7 @@ class Aircraft(object):
 
     def new_flight(self, destination, dep_time):
         # create a new flight for the given aircraft from its current location
-        f = Flight(aircraft=self, destination=destination, dep_time=dep_time)
+        f = Flight(aircraft=self, destination=destination, dep_time=dep_time, category=self.cat)
 
         # append past period and flight to history
         if len(self.flights)==0:
@@ -303,19 +304,23 @@ def time_add(times):
     new_time = new_time - timedelta(microseconds=new_time.microsecond)
     return new_time
 
-def load_icaos():
+def load_icaos(n=0):
     # load PIA icaos from file
     if len(myicaos)==0:
-        f = open('data/icaos.txt', 'r')
-        myicaos.extend(f.read().split('\n')[:-1])
-        f.close()
+        if n==0:
+            f = open('data/icaos.txt', 'r')
+            myicaos.extend(f.read().split('\n')[:-1])
+            f.close()
+        else:
+            myicaos.extend(list(range(0,n)))
         avail_icaos.extend(myicaos)
+
     return avail_icaos
 
 def get_icao(old=None):
     # returns a random unused ICAO address
     if len(myicaos)==0:
-        load_icaos()
+        load_icaos(n=100000)
     # put back the old icao to the set
     if old is not None:
         avail_icaos.append(old)
