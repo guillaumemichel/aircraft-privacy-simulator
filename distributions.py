@@ -101,14 +101,28 @@ class Distribution(object):
     def run(self, duration, time=None):
         if time is None:
             time=time_add([self.start_time, self.flight_frequency])
+
+        flights=list()
         if self.mode == modes[0]:
             # random mode
             until = time_add([time, duration, self.flight_frequency])
-            flights=list()
             while time < until:
                 flights.append(self.new_flight(time=time))
                 time = time_add([time, self.flight_frequency])
             for a in self.aircraft:
                 a.end_sim(time)
-            return flights
+
+        for f in flights:
+            # accuracy
+            if random.uniform(0, 1)<(1-self.accuracy)/2:
+                # departure is lost
+                f.dep_airport=None
+                f.dep_time=None
+                f.duration=None
+            if random.uniform(0, 1)<(1-self.accuracy)/2:
+                # arrival is lost
+                f.arr_airport=None
+                f.arr_time=None
+                f.duration=None
+        return flights
                 

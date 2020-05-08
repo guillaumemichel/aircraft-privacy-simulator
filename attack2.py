@@ -5,16 +5,18 @@ from matplotlib import pyplot as plt
 
 sys.setrecursionlimit(10000)
 
-intervals=30 # in minutes
+n_aircraft=100 # 1062 available icaos in total or parameter range in structures.py
+airports=airports_from_file('large').first(100)
+
+individual_flight_freq=1/10 # in days
+intervals=24*60/individual_flight_freq/n_aircraft # in minutes
 searchWindow=30*24*60/intervals
 
-n_aircraft=1000 # 1062 available icaos in total or parameter range in structures.py
-airports=airports_from_file('large').first(100)
 flight_frequency=timedelta(minutes=intervals)
-n_categories=10
+n_categories=5
 mode='random'
 policy='20-days' # no_privacy, callsign-change, 60-days, 20-days, max_privacy
-simlength=timedelta(days=365)
+simlength=timedelta(days=90)
 
 
 debug=False
@@ -35,14 +37,9 @@ def get_anonymized_flights(flights):
         #    seen.add(f.aircraft_id)
     return new_flights
 
-def generic_attack(correct_flights):
+def generic_attack(correct_flights, future_flights=True, side_channel=None, categories=True):
     # anonymize flights (by removing aircraft_id)
     flights=get_anonymized_flights(correct_flights)
-
-    # attack mode
-    future_flights=True
-    side_channel=None # None
-    categories=True
 
     # init our dicts
     ids=dict()
@@ -176,17 +173,56 @@ def plot_results(results):
             n=count[i]
         data.append(data[i]-n)
     plt.plot(data)
-    plt.axvline(x=result_average(results), color='red')
-    plt.show()
+    plt.gca().set_xlim([0,simlength.days*1.05])
+    plt.gca().set_ylim([0,n_aircraft*1.1])
+    #plt.axvline(x=result_average(results), color='red')
+    #plt.show()
 
 def print_flights(flights):
     for f in flights:
         print(f)
 
 if __name__ == '__main__':
+    policy = 'no_privacy'
+    flights = get_flights()
+    guess = generic_attack(flights)
+    result = verify(flights, guess)
+    plot_results(result)
+
+    policy = '60-days'
+    flights = get_flights()
+    guess = generic_attack(flights)
+    result = verify(flights, guess)
+    plot_results(result)
+
+    policy = '20-days'
+    flights = get_flights()
+    guess = generic_attack(flights)
+    result = verify(flights, guess)
+    plot_results(result)
+
+    policy = 'max_privacy'
+    flights = get_flights()
+    guess = generic_attack(flights)
+    result = verify(flights, guess)
+    plot_results(result)
+
+    plt.savefig('graph.pdf')
+    """
+    #n_aircraft=500 # 1062 available icaos in total or parameter range in structures.py
+    #airports=airports_from_file('large').first(100)
+    #flight_frequency=timedelta(minutes=intervals)
+    n_categories=2
+    #mode='random'
+    policy='60-days' # no_privacy, callsign-change, 60-days, 20-days, max_privacy
+    #simlength=timedelta(days=90)
+
     flights = get_flights()
     guess = generic_attack(flights)
     result = verify(flights, guess)
     print(result_average(result))
     plot_results(result)
-    
+
+    plt.savefig('graph.jpg')
+
+    """
