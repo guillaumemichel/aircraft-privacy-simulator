@@ -1,7 +1,7 @@
 from structures import *
 
 modes=['random']
-policies=['no_privacy','60-days', '20-days', 'callsign-change', 'max_privacy']
+policies=['no_privacy', 'days', 'callsign-change', 'max_privacy']
 
 class Distribution(object):
 
@@ -9,15 +9,15 @@ class Distribution(object):
     def __init__(self, mode, policy, airports, n_aircraft, callsigns=['DCM'], \
             start_time=default_start, flight_frequency=timedelta(minutes=15), \
             n_categories=1, accuracy=1):
-        random.seed('privacy')
+        #random.seed('privacy')
 
         if mode not in modes:
             print('Invalid Distribution mode:', mode)
             print('Available modes are', modes)
             sys.exit(1)
-        if policy not in policies:
+        if policy not in policies and policies[1] not in policy:
             print('Invalid Distribution policy:', policy)
-            print('Available modes are', policies)
+            print('Available policies are', policies)
             sys.exit(1)
 
         self.mode=mode
@@ -32,10 +32,8 @@ class Distribution(object):
         self.assigned_callsigns=set()
         self.aircraft=list()
 
-        if policy == policies[1]:
-            self.update_freq=60
-        elif policy == policies[2]:
-            self.update_freq=20
+        if policies[1] in policy:
+            self.update_freq=int(policy.split('-')[0])
         else:
             self.update_freq=None
 
@@ -46,7 +44,7 @@ class Distribution(object):
     def initial_next_update(self):
         if self.policy == policies[0]: # no_privacy
             return None
-        if self.policy in policies[1:3]: # 20-days or 60-days
+        if policies[1] in self.policy: # 20-days or 60-days
             return time_add([self.start_time, timedelta(days=random.randint(1,self.update_freq))])
         return None
 
@@ -59,9 +57,9 @@ class Distribution(object):
         return callsign
 
     def update_aircraft(self, aircraft, time):
-        if self.policy in policies[-2:] or self.policy in policies[1:3] and aircraft.next_update <= time:
+        if self.policy in policies[-2:] or policies[1] in self.policy and aircraft.next_update <= time:
             aircraft.callsign = self.new_callsign(aircraft.callsign)
-            if self.policy in policies[1:3] or self.policy == policies[-1]:
+            if policies[1] in self.policy or self.policy == policies[-1]:
                 aircraft.icao = get_icao(aircraft.icao)
                 if self.policy!=policies[-1]: # max_privacy
                     while aircraft.next_update <= time: 
@@ -111,18 +109,7 @@ class Distribution(object):
                 time = time_add([time, self.flight_frequency])
             for a in self.aircraft:
                 a.end_sim(time)
+        
 
-        for f in flights:
-            # accuracy
-            if random.uniform(0, 1)<(1-self.accuracy)/2:
-                # departure is lost
-                f.dep_airport=None
-                f.dep_time=None
-                f.duration=None
-            if random.uniform(0, 1)<(1-self.accuracy)/2:
-                # arrival is lost
-                f.arr_airport=None
-                f.arr_time=None
-                f.duration=None
         return flights
                 

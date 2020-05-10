@@ -8,15 +8,15 @@ sys.setrecursionlimit(10000)
 n_aircraft=100 # 1062 available icaos in total or parameter range in structures.py
 airports=airports_from_file('large').first(100)
 
-individual_flight_freq=1/10 # in days
+individual_flight_freq=0.31 # in days
 intervals=24*60/individual_flight_freq/n_aircraft # in minutes
 searchWindow=30*24*60/intervals
 
 flight_frequency=timedelta(minutes=intervals)
-n_categories=5
+n_categories=10
 mode='random'
 policy='20-days' # no_privacy, callsign-change, 60-days, 20-days, max_privacy
-simlength=timedelta(days=90)
+simlength=timedelta(days=365)
 
 
 debug=False
@@ -37,9 +37,12 @@ def get_anonymized_flights(flights):
         #    seen.add(f.aircraft_id)
     return new_flights
 
-def generic_attack(correct_flights, future_flights=True, side_channel=None, categories=True):
+def generic_attack(correct_flights, future_flights=True, side_channel=None, \
+        categories=True, lost_airports_n=0):
     # anonymize flights (by removing aircraft_id)
     flights=get_anonymized_flights(correct_flights)
+    lost_airports=random.choices(population=airports.elements, k=lost_airports_n)
+    #print('lost_airports',lost_airports)
 
     # init our dicts
     ids=dict()
@@ -50,15 +53,18 @@ def generic_attack(correct_flights, future_flights=True, side_channel=None, cate
 
         # get candidates for 'old' icao
         check_time=time_add([f.dep_time, timedelta(milliseconds=-1)])
-        old_icaos=[a.icao_at(check_time) for a in f.dep_airport.aircraft_at(check_time)]
+
+        if f.dep_airport.icao in [a.icao for a in lost_airports]:
+            # check lost airport
+            old_icaos=[ac.icao_at(check_time) for ap in lost_airports for ac in ap.aircraft_at(check_time)]
+        else:
+            old_icaos=[a.icao_at(check_time) for a in f.dep_airport.aircraft_at(check_time)]
 
         if f.icao in old_icaos:
             # there was most probably no change
             if f.icao not in ids:
                 # unknown plane, add it
                 ids[f.icao]=len(ids)
-            # add mapping
-            mapping[correct_flights[i].aircraft_id]=ids[f.icao]
         else:
             if len(old_icaos)==0:
                 print('error',i)
@@ -120,6 +126,11 @@ def generic_attack(correct_flights, future_flights=True, side_channel=None, cate
             del ids[selected]
         f.aircraft_id=ids[f.icao]
 
+        # add mapping
+        if correct_flights[i].aircraft_id not in mapping:
+            mapping[correct_flights[i].aircraft_id]=ids[f.icao]
+
+
         if debug and mapping[correct_flights[i].aircraft_id] != f.aircraft_id:
             print('Mistake with flight:')
             print(correct_flights[i])
@@ -152,6 +163,32 @@ def verify(correct, prediction):
 
     return result
 
+def multiple_sim(n=10, future_flights=True, side_channel=None, \
+        categories=True, lost_airports_n=0, label='No label'):
+    results=list()
+    for i in range(n):
+        flights = get_flights()
+        guess = generic_attack(flights, future_flights=future_flights, \
+            side_channel=side_channel, categories=categories, lost_airports_n=lost_airports_n)
+        results.append(verify(flights, guess))
+
+    final=[0]*simlength.days
+    for result in results:
+        count=dict()
+        for aid in result:
+            if result[aid] not in count:
+                count[result[aid]]=0
+            count[result[aid]]+=1
+        data = [len(result)]
+        for i in range(simlength.days):
+            m=0
+            if i in count:
+                m=count[i]
+            data.append(data[i]-m)
+            final[i]+=data[-1]
+    final=[e/n for e in final]
+    plt.plot(final, label=label)
+
 def result_average(result):
     c=0
     for r in result:
@@ -183,31 +220,47 @@ def print_flights(flights):
         print(f)
 
 if __name__ == '__main__':
-    policy = 'no_privacy'
-    flights = get_flights()
-    guess = generic_attack(flights)
-    result = verify(flights, guess)
-    plot_results(result)
-
+    #policy = 'no_privacy'
+    #multiple_sim(n=20, label='no_privacy')
+    policy = '10-days'
+    multiple_sim(n=2, label='10 days')
+    policy = '20-days'
+    multiple_sim(n=2, label='20 days')
+    policy = '30-days'
+    multiple_sim(n=2, label='30 days')
+    policy = '40-days'
+    multiple_sim(n=2, label='40 days')
+    policy = '50-days'
+    multiple_sim(n=2, label='50 days')
     policy = '60-days'
-    flights = get_flights()
-    guess = generic_attack(flights)
-    result = verify(flights, guess)
-    plot_results(result)
+    multiple_sim(n=2, label='60 days')
+    policy = 'max_privacy'
+    multiple_sim(n=2, label='max privacy')
 
+
+    graph=plt.gca()
+    graph.set_xlim([0,simlength.days*1.05])
+    graph.set_ylim([0,n_aircraft*1.1])
+    graph.legend()
+    graph.set_xlabel('Days')
+    graph.set_ylabel('Aircraft number')
+    plt.savefig('graph.pdf')
+
+    """
     policy = '20-days'
     flights = get_flights()
     guess = generic_attack(flights)
     result = verify(flights, guess)
-    plot_results(result)
+    #plot_results(result)
 
     policy = 'max_privacy'
     flights = get_flights()
     guess = generic_attack(flights)
     result = verify(flights, guess)
-    plot_results(result)
+    #plot_results(result)
 
     plt.savefig('graph.pdf')
+    """
     """
     #n_aircraft=500 # 1062 available icaos in total or parameter range in structures.py
     #airports=airports_from_file('large').first(100)
