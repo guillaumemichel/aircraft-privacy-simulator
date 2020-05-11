@@ -13,18 +13,18 @@ intervals=24*60/individual_flight_freq/n_aircraft # in minutes
 searchWindow=30*24*60/intervals
 
 flight_frequency=timedelta(minutes=intervals)
-n_categories=10
+#n_categories=1
 mode='random'
-policy='20-days' # no_privacy, callsign-change, 60-days, 20-days, max_privacy
-simlength=timedelta(days=365)
-
+#policy='20-days' # no_privacy, callsign-change, 60-days, 20-days, max_privacy
+simlength=timedelta(days=150)
 
 debug=False
+
+random.seed('10101110101')
 
 def get_flights():
     dis = Distribution(mode=mode, policy=policy, airports=airports, \
         n_aircraft=n_aircraft, flight_frequency=flight_frequency, n_categories=n_categories)
-
     return dis.run(simlength)
 
 def get_anonymized_flights(flights):
@@ -44,6 +44,9 @@ def generic_attack(correct_flights, future_flights=True, side_channel=None, \
     lost_airports=random.choices(population=airports.elements, k=lost_airports_n)
     #print('lost_airports',lost_airports)
 
+    change_detected=0
+    mistakes=0
+
     # init our dicts
     ids=dict()
     mapping=dict()
@@ -56,9 +59,9 @@ def generic_attack(correct_flights, future_flights=True, side_channel=None, \
 
         if f.dep_airport.icao in [a.icao for a in lost_airports]:
             # check lost airport
-            old_icaos=[ac.icao_at(check_time) for ap in lost_airports for ac in ap.aircraft_at(check_time)]
+            old_icaos=[ac.icao_at(check_time) for ap in lost_airports for ac in ap.aircraft_at(check_time) if ac.cat==f.aircraft_cat]
         else:
-            old_icaos=[a.icao_at(check_time) for a in f.dep_airport.aircraft_at(check_time)]
+            old_icaos=[a.icao_at(check_time) for a in f.dep_airport.aircraft_at(check_time) if a.cat==f.aircraft_cat]
 
         if f.icao in old_icaos:
             # there was most probably no change
@@ -66,8 +69,11 @@ def generic_attack(correct_flights, future_flights=True, side_channel=None, \
                 # unknown plane, add it
                 ids[f.icao]=len(ids)
         else:
+            change_detected+=1
             if len(old_icaos)==0:
                 print('error',i)
+                print([a.icao_at(check_time) for a in f.dep_airport.aircraft_at(check_time) if a.cat==f.aircraft_cat])
+                print([a.icao_at(check_time) for a in f.dep_airport.aircraft_at(check_time)])
 
             if future_flights and len(old_icaos)>0:
 
@@ -131,12 +137,16 @@ def generic_attack(correct_flights, future_flights=True, side_channel=None, \
             mapping[correct_flights[i].aircraft_id]=ids[f.icao]
 
 
-        if debug and mapping[correct_flights[i].aircraft_id] != f.aircraft_id:
-            print('Mistake with flight:')
-            print(correct_flights[i])
-            print('was attributed id',f.aircraft_id)
-            print('possible icaos were', old_icaos,'\n')
+        if mapping[correct_flights[i].aircraft_id] != f.aircraft_id:
+            mistakes+=1
+            if debug:
+                print('Mistake with flight:')
+                print(correct_flights[i])
+                print('was attributed id',f.aircraft_id)
+                print('possible icaos were', old_icaos,'\n')
         
+    print(change_detected,'changes detected')
+    print(mistakes, 'mistakes')
     return flights
 
 def verify(correct, prediction):
@@ -222,6 +232,7 @@ def print_flights(flights):
 if __name__ == '__main__':
     #policy = 'no_privacy'
     #multiple_sim(n=20, label='no_privacy')
+    """
     policy = '10-days'
     multiple_sim(n=2, label='10 days')
     policy = '20-days'
@@ -234,8 +245,17 @@ if __name__ == '__main__':
     multiple_sim(n=2, label='50 days')
     policy = '60-days'
     multiple_sim(n=2, label='60 days')
-    policy = 'max_privacy'
-    multiple_sim(n=2, label='max privacy')
+    """
+    n_categories=1
+    policy = '60-days'
+    multiple_sim(n=20, label='60 days')
+    policy = '28-days'
+    multiple_sim(n=20, label='28 days')
+
+    #policy = '90-days'
+    #multiple_sim(n=2, label='90 days')
+    #policy = 'max_privacy'
+    #multiple_sim(n=2, label='max_privacy')
 
 
     graph=plt.gca()
@@ -244,7 +264,7 @@ if __name__ == '__main__':
     graph.legend()
     graph.set_xlabel('Days')
     graph.set_ylabel('Aircraft number')
-    plt.savefig('graph.pdf')
+    plt.savefig('graphs/graph.pdf')
 
     """
     policy = '20-days'

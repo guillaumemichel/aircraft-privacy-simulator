@@ -1,7 +1,7 @@
 from structures import *
 
 modes=['random']
-policies=['no_privacy', 'days', 'callsign-change', 'max_privacy']
+policies=['no_privacy', '-days', '-days-together', 'callsign-change', 'max_privacy']
 
 class Distribution(object):
 
@@ -34,17 +34,25 @@ class Distribution(object):
 
         if policies[1] in policy:
             self.update_freq=int(policy.split('-')[0])
+            self.initial_update=time_add([start_time+timedelta(days=self.update_freq)])
         else:
             self.update_freq=None
+        print(self.update_freq)
 
         for i in range(n_aircraft):
             self.new_aircraft()
+
+        self.update_count=0
 
 
     def initial_next_update(self):
         if self.policy == policies[0]: # no_privacy
             return None
-        if policies[1] in self.policy: # 20-days or 60-days
+        if policies[2] in self.policy:
+            if self.initial_update is None:
+                self.initial_update=time_add([self.start_time, timedelta(days=random.randint(1,self.update_freq))])
+            return self.initial_update
+        if policies[1] in self.policy or policies[2] in self.policy: # 20-days or 60-days
             return time_add([self.start_time, timedelta(days=random.randint(1,self.update_freq))])
         return None
 
@@ -64,6 +72,7 @@ class Distribution(object):
                 if self.policy!=policies[-1]: # max_privacy
                     while aircraft.next_update <= time: 
                         aircraft.next_update = time_add([aircraft.next_update, timedelta(days=self.update_freq)])
+                        self.update_count+=1
             return True
         return False
 
@@ -110,6 +119,6 @@ class Distribution(object):
             for a in self.aircraft:
                 a.end_sim(time)
         
-
+        print(self.update_count)
         return flights
                 

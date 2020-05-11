@@ -76,6 +76,7 @@ class Aircraft(object):
         tostr += "Current location:  "+str(self.location.icao)+"\n"
         tostr += "Average Speed:     "+str(self.avg_speed)+"\n"
         tostr += "Number of flights: "+str(len(self.flights))+"\n"
+        tostr += "Category:          "+str(self.cat)+"\n"
         return tostr
 
     def new_flight(self, destination, dep_time):
