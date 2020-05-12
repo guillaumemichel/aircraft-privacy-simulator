@@ -16,16 +16,17 @@ flight_frequency=timedelta(minutes=intervals)
 #n_categories=1
 mode='random'
 #policy='20-days' # no_privacy, callsign-change, 60-days, 20-days, max_privacy
-simlength=timedelta(days=150)
+simlength=timedelta(days=300)
 
 debug=False
 
-random.seed('10101110101')
+random.seed('0')
 
 def get_flights():
     dis = Distribution(mode=mode, policy=policy, airports=airports, \
         n_aircraft=n_aircraft, flight_frequency=flight_frequency, n_categories=n_categories)
     return dis.run(simlength)
+    
 
 def get_anonymized_flights(flights):
     new_flights = deepcopy(flights)
@@ -55,12 +56,13 @@ def generic_attack(correct_flights, future_flights=True, side_channel=None, \
         f=flights[i]
 
         # get candidates for 'old' icao
-        check_time=time_add([f.dep_time, timedelta(milliseconds=-1)])
+        check_time=time_add([f.dep_time, timedelta(microseconds=-1)])
 
         if f.dep_airport.icao in [a.icao for a in lost_airports]:
             # check lost airport
             old_icaos=[ac.icao_at(check_time) for ap in lost_airports for ac in ap.aircraft_at(check_time) if ac.cat==f.aircraft_cat]
         else:
+            #old_icaos=[a.icao_at(check_time) for a in f.dep_airport.aircraft_at(check_time)]
             old_icaos=[a.icao_at(check_time) for a in f.dep_airport.aircraft_at(check_time) if a.cat==f.aircraft_cat]
 
         if f.icao in old_icaos:
@@ -74,6 +76,9 @@ def generic_attack(correct_flights, future_flights=True, side_channel=None, \
                 print('error',i)
                 print([a.icao_at(check_time) for a in f.dep_airport.aircraft_at(check_time) if a.cat==f.aircraft_cat])
                 print([a.icao_at(check_time) for a in f.dep_airport.aircraft_at(check_time)])
+                print(f.dep_airport.icao)
+                print(f.dep_time)
+                print(correct_flights[i].aircraft_id)
 
             if future_flights and len(old_icaos)>0:
 
@@ -145,8 +150,8 @@ def generic_attack(correct_flights, future_flights=True, side_channel=None, \
                 print('was attributed id',f.aircraft_id)
                 print('possible icaos were', old_icaos,'\n')
         
-    print(change_detected,'changes detected')
-    print(mistakes, 'mistakes')
+    #print(change_detected,'changes detected')
+    #print(mistakes, 'mistakes')
     return flights
 
 def verify(correct, prediction):
@@ -247,18 +252,17 @@ if __name__ == '__main__':
     multiple_sim(n=2, label='60 days')
     """
     n_categories=1
-    policy = '60-days'
-    multiple_sim(n=20, label='60 days')
     policy = '28-days'
-    multiple_sim(n=20, label='28 days')
-
-    #policy = '90-days'
-    #multiple_sim(n=2, label='90 days')
-    #policy = 'max_privacy'
-    #multiple_sim(n=2, label='max_privacy')
-
+    multiple_sim(n=10, label='1 cat')
+    n_categories=5
+    multiple_sim(n=10, label='5 cat')
+    n_categories=10
+    multiple_sim(n=10, label='10 cat')
+    n_categories=20
+    multiple_sim(n=10, label='20 cat')
 
     graph=plt.gca()
+    graph.set_title('Aircraft tracked over time')
     graph.set_xlim([0,simlength.days*1.05])
     graph.set_ylim([0,n_aircraft*1.1])
     graph.legend()

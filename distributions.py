@@ -1,4 +1,5 @@
 from structures import *
+from copy import deepcopy
 
 modes=['random']
 policies=['no_privacy', '-days', '-days-together', 'callsign-change', 'max_privacy']
@@ -22,7 +23,7 @@ class Distribution(object):
 
         self.mode=mode
         self.policy=policy
-        self.airports=airports.elements
+        self.airports=deepcopy(airports.elements)
         self.callsigns=callsigns
         self.start_time=start_time
         self.flight_frequency=flight_frequency
@@ -37,13 +38,9 @@ class Distribution(object):
             self.initial_update=time_add([start_time+timedelta(days=self.update_freq)])
         else:
             self.update_freq=None
-        print(self.update_freq)
 
         for i in range(n_aircraft):
             self.new_aircraft()
-
-        self.update_count=0
-
 
     def initial_next_update(self):
         if self.policy == policies[0]: # no_privacy
@@ -72,7 +69,6 @@ class Distribution(object):
                 if self.policy!=policies[-1]: # max_privacy
                     while aircraft.next_update <= time: 
                         aircraft.next_update = time_add([aircraft.next_update, timedelta(days=self.update_freq)])
-                        self.update_count+=1
             return True
         return False
 
@@ -90,10 +86,10 @@ class Distribution(object):
         # return a random aircraft from the set that is on ground 
         a = self.aircraft[random.randint(0, len(self.aircraft)-1)]
         c=0
-        while not a.on_ground(time) and c < 1000:
+        while not a.on_ground(time_add([time, timedelta(milliseconds=-1)])) and c < 10000:
             a = self.aircraft[random.randint(0, len(self.aircraft)-1)]
             c+=1
-        if c>=1000:
+        if c>=10000:
             print('not enought aircraft, sorry')
             sys.exit(1)
         return a
@@ -119,6 +115,5 @@ class Distribution(object):
             for a in self.aircraft:
                 a.end_sim(time)
         
-        print(self.update_count)
         return flights
                 

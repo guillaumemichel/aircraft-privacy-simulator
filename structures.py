@@ -110,7 +110,7 @@ class Aircraft(object):
     def on_ground(self, time):
         # return true if aircraft on ground at the given time
         for h in self.history:
-            if h.from_time <= time < h.until_time:
+            if h.from_time < time < h.until_time:
                 return h.status=="ground"
         return True
 
@@ -193,6 +193,8 @@ class Airport(object):
         for h in self.aircraft_history:
             if h.arrival_time <= time < h.departure_time:
                 ac_list.append(h.aircraft)
+        if len(ac_list)==0:
+            print('strange: no aircraft at '+self.icao+' at '+str(time))
         return ac_list
 
     def print_aircraft_at(self, time):
