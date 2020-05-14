@@ -13,10 +13,10 @@ intervals=24*60/individual_flight_freq/n_aircraft # in minutes
 searchWindow=30*24*60/intervals
 
 flight_frequency=timedelta(minutes=intervals)
-#n_categories=1
+n_categories=1
 mode='random'
 #policy='20-days' # no_privacy, callsign-change, 60-days, 20-days, max_privacy
-simlength=timedelta(days=300)
+simlength=timedelta(days=365)
 
 debug=False
 
@@ -194,14 +194,15 @@ def multiple_sim(n=10, future_flights=True, side_channel=None, \
             if result[aid] not in count:
                 count[result[aid]]=0
             count[result[aid]]+=1
-        data = [len(result)]
+        data = [1.0]
         for i in range(simlength.days):
             m=0
             if i in count:
                 m=count[i]
-            data.append(data[i]-m)
+            data.append(data[i]-(m/len(result)))
             final[i]+=data[-1]
     final=[e/n for e in final]
+    to_file('records/together.txt', final)
     plt.plot(final, label=label)
 
 def result_average(result):
@@ -218,17 +219,23 @@ def plot_results(results):
         if results[aid] not in count:
             count[results[aid]]=0
         count[results[aid]]+=1
-    data = [len(results)]
+    data = [1.0]
     for i in range(simlength.days):
         n=0
         if i in count:
             n=count[i]
-        data.append(data[i]-n)
+        data.append((data[i]-n)/len(results))
     plt.plot(data)
     plt.gca().set_xlim([0,simlength.days*1.05])
     plt.gca().set_ylim([0,n_aircraft*1.1])
+    to_file('records/together2.txt', data)
     #plt.axvline(x=result_average(results), color='red')
     #plt.show()
+
+def to_file(filename, struct):
+    f = open(filename, 'a')
+    f.write(str(struct)+'\n')
+    f.close()
 
 def print_flights(flights):
     for f in flights:
@@ -237,37 +244,24 @@ def print_flights(flights):
 if __name__ == '__main__':
     #policy = 'no_privacy'
     #multiple_sim(n=20, label='no_privacy')
-    """
-    policy = '10-days'
-    multiple_sim(n=2, label='10 days')
-    policy = '20-days'
-    multiple_sim(n=2, label='20 days')
-    policy = '30-days'
-    multiple_sim(n=2, label='30 days')
-    policy = '40-days'
-    multiple_sim(n=2, label='40 days')
-    policy = '50-days'
-    multiple_sim(n=2, label='50 days')
-    policy = '60-days'
-    multiple_sim(n=2, label='60 days')
-    """
-    n_categories=1
+    n_aircraft=100
+    airports=airports_from_file('large').first(100)
     policy = '28-days'
-    multiple_sim(n=10, label='1 cat')
-    n_categories=5
-    multiple_sim(n=10, label='5 cat')
-    n_categories=10
-    multiple_sim(n=10, label='10 cat')
-    n_categories=20
-    multiple_sim(n=10, label='20 cat')
+    n_categories=1
+    multiple_sim(n=100, label='28 days')
+    policy = '28-days-together'
+    multiple_sim(n=100, label='28 days together')
+    policy = 'max_privacy'
+    multiple_sim(n=100, label='max privacy')
 
     graph=plt.gca()
-    graph.set_title('Aircraft tracked over time')
+    graph.set_title('Tracked aircraft over time')
     graph.set_xlim([0,simlength.days*1.05])
-    graph.set_ylim([0,n_aircraft*1.1])
-    graph.legend()
+    #graph.set_ylim([0,n_aircraft*1.1])
+    graph.set_ylim([0,1.05])
+    graph.legend(title='Policy')
     graph.set_xlabel('Days')
-    graph.set_ylabel('Aircraft number')
+    graph.set_ylabel('Tracked aircraft rate')
     plt.savefig('graphs/graph.pdf')
 
     """

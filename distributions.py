@@ -35,7 +35,7 @@ class Distribution(object):
 
         if policies[1] in policy:
             self.update_freq=int(policy.split('-')[0])
-            self.initial_update=time_add([start_time+timedelta(days=self.update_freq)])
+            self.initial_update=time_add([start_time+timedelta(days=int(self.update_freq/2))])
         else:
             self.update_freq=None
 
@@ -47,9 +47,9 @@ class Distribution(object):
             return None
         if policies[2] in self.policy:
             if self.initial_update is None:
-                self.initial_update=time_add([self.start_time, timedelta(days=random.randint(1,self.update_freq))])
+                self.initial_update=time_add([self.start_time, timedelta(days=int(self.update_freq/2))])
             return self.initial_update
-        if policies[1] in self.policy or policies[2] in self.policy: # 20-days or 60-days
+        if policies[1] in self.policy: # 20-days or 60-days
             return time_add([self.start_time, timedelta(days=random.randint(1,self.update_freq))])
         return None
 
