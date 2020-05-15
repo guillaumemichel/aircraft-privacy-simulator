@@ -202,7 +202,7 @@ def multiple_sim(n=10, future_flights=True, side_channel=None, \
             data.append(data[i]-(m/len(result)))
             final[i]+=data[-1]
     final=[e/n for e in final]
-    to_file('records/together.txt', final)
+    to_file('records/aircraft.txt', final)
     plt.plot(final, label=label)
 
 def result_average(result):
@@ -244,22 +244,22 @@ def print_flights(flights):
 if __name__ == '__main__':
     #policy = 'no_privacy'
     #multiple_sim(n=20, label='no_privacy')
-    n_aircraft=100
-    airports=airports_from_file('large').first(100)
+    n_aircraft=10
+    airports=airports_from_file('large').first(45)
     policy = '28-days'
     n_categories=1
     multiple_sim(n=100, label='28 days')
-    policy = '28-days-together'
-    multiple_sim(n=100, label='28 days together')
-    policy = 'max_privacy'
-    multiple_sim(n=100, label='max privacy')
+    policy = '60-days'
+    multiple_sim(n=100, label='60 days')
+    #policy = 'max_privacy'
+    #multiple_sim(n=100, label='max privacy')
 
     graph=plt.gca()
     graph.set_title('Tracked aircraft over time')
     graph.set_xlim([0,simlength.days*1.05])
     #graph.set_ylim([0,n_aircraft*1.1])
     graph.set_ylim([0,1.05])
-    graph.legend(title='Policy')
+    graph.legend(title='PIA update frequency')
     graph.set_xlabel('Days')
     graph.set_ylabel('Tracked aircraft rate')
     plt.savefig('graphs/graph.pdf')
