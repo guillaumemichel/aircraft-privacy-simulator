@@ -1,4 +1,4 @@
-filename='records/policies.txt'
+filename='records/types2.txt'
 
 f=open(filename, 'r')
 data=f.read()
@@ -12,8 +12,12 @@ def get_first_value(v):
             print(c)
             break
 
-def get_value_at(i):
-    print(curves[0][i])
+def get_value_at(i, curve):
+    print(curves[curve][i])
+
+def get_average():
+    print(sum(curves[0])/len(curves[0]))
+    
 
 curves=list()
 for l in data.split('\n'):
@@ -21,4 +25,5 @@ for l in data.split('\n'):
         break
     curves.append([float(d.strip()) for d in l.replace('[', '').replace(']', '').split(',')[:-1]])
 
-get_value_at(250)
+for i in range(len(curves)):
+    get_value_at(200, i)
