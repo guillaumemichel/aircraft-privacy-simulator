@@ -20,7 +20,7 @@ simlength=timedelta(days=365)
 
 debug=False
 
-random.seed('0')
+random.seed('01')
 
 def get_flights():
     dis = Distribution(mode=mode, policy=policy, airports=airports, \
@@ -202,7 +202,7 @@ def multiple_sim(n=10, future_flights=True, side_channel=None, \
             data.append(data[i]-(m/len(result)))
             final[i]+=data[-1]
     final=[e/n for e in final]
-    to_file('records/types2.txt', final)
+    to_file('records/coverage.txt', final)
     plt.plot(final, label=label)
 
 def result_average(result):
@@ -248,11 +248,11 @@ if __name__ == '__main__':
     policy = '28-days'
     n_aircraft=200
     n_categories=1
-    multiple_sim(n=100, label='1 type')
-    n_categories=3
-    multiple_sim(n=100, label='3 types')
-    n_categories=7
-    multiple_sim(n=100, label='7 types')
+    multiple_sim(n=100, label='100%', lost_airports_n=0)
+    #n_categories=3
+    multiple_sim(n=100, label='98%', lost_airports_n=2)
+    #n_categories=7
+    multiple_sim(n=100, label='95%', lost_airports_n=5)
 
 
     graph=plt.gca()
@@ -260,7 +260,7 @@ if __name__ == '__main__':
     graph.set_xlim([0,simlength.days*1.05])
     #graph.set_ylim([0,n_aircraft*1.1])
     graph.set_ylim([0,1.05])
-    graph.legend(title='Number of aircraft types')
+    graph.legend(title='Airports coverage')
     graph.set_xlabel('Days')
     graph.set_ylabel('Tracked aircraft rate')
     plt.savefig('graphs/graph.pdf')
