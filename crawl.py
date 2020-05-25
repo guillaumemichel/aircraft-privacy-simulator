@@ -1,4 +1,4 @@
-filename='records/types2.txt'
+filename='records/together.txt'
 
 f=open(filename, 'r')
 data=f.read()
@@ -25,5 +25,5 @@ for l in data.split('\n'):
         break
     curves.append([float(d.strip()) for d in l.replace('[', '').replace(']', '').split(',')[:-1]])
 
-for i in range(len(curves)):
-    get_value_at(200, i)
+get_value_at(90, 2)
+get_value_at(90, 0)
