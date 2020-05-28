@@ -202,7 +202,7 @@ def multiple_sim(n=10, future_flights=True, side_channel=None, \
             data.append(data[i]-(m/len(result)))
             final[i]+=data[-1]
     final=[e/n for e in final]
-    to_file('records/coverage.txt', final)
+    to_file('records/current_final.txt', final)
     plt.plot(final, label=label)
 
 def result_average(result):
@@ -244,23 +244,20 @@ def print_flights(flights):
 if __name__ == '__main__':
     #policy = 'no_privacy'
     #multiple_sim(n=20, label='no_privacy')
-    airports=airports_from_file('large').first(100)
-    policy = '28-days'
-    n_aircraft=200
+    airports=airports_from_file('large').first(40)
+    n_aircraft=10
     n_categories=1
-    multiple_sim(n=100, label='100%', lost_airports_n=0)
-    #n_categories=3
-    multiple_sim(n=100, label='98%', lost_airports_n=2)
-    #n_categories=7
-    multiple_sim(n=100, label='95%', lost_airports_n=5)
-
+    policy = '60-days'
+    multiple_sim(n=100, label='60 days')
+    policy = '28-days'
+    multiple_sim(n=100, label='60 days')
 
     graph=plt.gca()
-    graph.set_title('Tracked aircraft over time')
+    #graph.set_title('Tracked aircraft over time')
     graph.set_xlim([0,simlength.days*1.05])
     #graph.set_ylim([0,n_aircraft*1.1])
     graph.set_ylim([0,1.05])
-    graph.legend(title='Airports coverage')
+    graph.legend(title='PIA change policy')
     graph.set_xlabel('Days')
     graph.set_ylabel('Tracked aircraft rate')
     plt.savefig('graphs/graph.pdf')
