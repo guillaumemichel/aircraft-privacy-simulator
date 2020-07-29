@@ -1,310 +1,290 @@
-from distributions import Distribution
+from simulation import Simulation
 from structures import *
 from copy import deepcopy
+from matplotlib import pyplot as plt
 
 sys.setrecursionlimit(10000)
 
-n_aircraft=100 # 1062 available icaos in total
-airports=airports_from_file('medium').first(1000)
-flight_frequency=timedelta(minutes=15)
-mode='random'
-policy='60-days' # no_privacy, callsign-change, 60-days, 20-days, max_privacy
-simlength=timedelta(days=90)
+# create a simulation and get the list of flights that resulted from it
+def get_flights(mode='random', policy='max_privacy', airports=None, n_aircraft=100, \
+        flight_frequency=0.31, n_categories=1, simlength=timedelta(days=30)):
 
+    # if no airports are given, take the default ones
+    if airports is None:
+        airports=airports_from_file('large').first(100)
+    
+    # create the simulation
+    dis = Simulation(mode=mode, policy=policy, airports=airports, \
+        n_aircraft=n_aircraft, flight_frequency=flight_frequency, \
+        n_categories=n_categories)
+    # run the simulation and returns the results of the simulation
+    return dis.run(simlength)    
 
-def verify(flights, prediction):
-    if len(flights)!=len(prediction):
-        print('cannot verify! prediction and flights should have the same length')
-        sys.exit(1)
-    # verify correct sequence
-
-    flights_ids=dict()
-    flights_dict=dict()
-    predict_ids=dict()
-    predict_dict=dict()
-    for i in range(len(flights)):
-        flights_ids[flights[i].id]=flights[i].aircraft_id
-        predict_ids[prediction[i].id]=prediction[i].aircraft_id
-
-        if flights[i].aircraft_id not in flights_dict:
-            flights_dict[flights[i].aircraft_id]=list()
-        flights_dict[flights[i].aircraft_id].append((flights[i].id, flights[i].icao))
-        if prediction[i].aircraft_id not in predict_dict:
-            predict_dict[prediction[i].aircraft_id]=list()
-        predict_dict[prediction[i].aircraft_id].append(prediction[i].id)
-
-    score=0
-    total=0
-    for aircraft in flights_dict:
-        my_flights=flights_dict[aircraft]
-        if len(my_flights)>1:
-            for i in range(1, len(my_flights)):
-                if my_flights[i-1][1] != my_flights[i][1]: # icao change
-                    total+=1
-                    # check if both flights are in the same list
-                    o = predict_dict[predict_ids[my_flights[i-1][0]]]
-                    if my_flights[i][0] in o:
-                        score += 1
-    if total==0:
-        return 1
-    print(total)
-    return score/total
-        
-
-    """
-    success=0
-    for i in range(len(flights)):
-        if flights[i].aircraft_id==prediction[i].aircraft_id:
-            success+=1
-    return success/len(flights)
-    """
-
-def get_flights():
-    dis = Distribution(mode=mode, policy=policy, airports=airports, \
-        n_aircraft=n_aircraft, flight_frequency=flight_frequency)
-
-    aircraft = deepcopy(dis.aircraft)
-    flights=dis.run(simlength)
-    return aircraft, flights
-
+# get all flights without unique identifier
 def get_anonymized_flights(flights):
     new_flights = deepcopy(flights)
-    seen=set()
     for f in new_flights:
-        if f.aircraft_id in seen:
             f.aircraft_id=None
-        else:
-            seen.add(f.aircraft_id)
     return new_flights
 
-def solve_random(flights):
-    for f in flights:
-        f.aircraft_id=random.randint(0,n_aircraft-1)
-    return flights
+# perform the tracking attack on the given flights
+def generic_attack(correct_flights, future_flights=True, side_channel=None, \
+        categories=True, lost_airports_n=0, searchWindow=30/0.31):
+    # anonymize flights (by removing aircraft_id)
+    flights=get_anonymized_flights(correct_flights)
+    lost_airports=random.choices(population=airports.elements, k=lost_airports_n)
 
-def solve_no_privacy(flights):
-    icaos=dict()
-    for f in flights:
-        if f.icao not in icaos and f.aircraft_id is not None:
-            icaos[f.icao]=f.aircraft_id
-        elif f.icao in icaos:
-            f.aircraft_id=icaos[f.icao]
-        else:
-            f.aircraft_id=random.choice(list(icaos.keys()))
-    return flights
+    change_detected=0
+    mistakes=0
 
-def solve_callsign_change(flights):
-    return solve_no_privacy(flights)
+    # init our dicts
+    ids=dict()
+    mapping=dict()
 
-def solve_simple_location(flights):
-    ids=dict() # icao -> id
-    ids[flights[0].icao]=len(ids)
-    for f in flights[1:]:
-        #print('ids:', ids)
-        check_time=time_add([f.dep_time, timedelta(milliseconds=-1)])
-        old_icaos=[a.icao_at(check_time) for a in f.dep_airport.aircraft_at(check_time)]
-        if f.icao not in ids:
-            ids[f.icao]=len(ids)
-        if f.icao not in old_icaos: # change detected
-            #print(f.id, f.dep_airport.icao, old_icaos, check_time)
-            selected=random.choice(old_icaos) # select randomly icao
-            if selected not in ids:
-                ids[selected]=len(ids) # associate an aircraft id to that icao
-            f.aircraft_id=ids[selected]
-
-            ids[f.icao]=ids[selected] # update aircraft_id - icao record
-            del ids[selected]
-        else:
-            f.aircraft_id=ids[f.icao]
-    return flights
-
-# not really working
-# in case: ac0 doesn't change icao, later ac1 change icao to the one used by ac0 at the given airport
-def solve_location_future(flights, aircraft):
-    ids=dict() # icao -> id
-    #for a in aircraft:
-    #    ids[a.icao]=a.id
-    #ids[flights[0].icao]=len(ids)
     for i in range(len(flights)):
         f=flights[i]
-        #if f.aircraft_id is not None:
-        #    ids[f.icao]=f.aircraft_id
-        #    continue
-        check_time=time_add([f.dep_time, timedelta(milliseconds=-1)])
-        old_icaos=[a.icao_at(check_time) for a in f.dep_airport.aircraft_at(check_time)]
-        if f.icao not in ids:
-            ids[f.icao]=len(ids)
-        if len(old_icaos)>0 and f.icao not in old_icaos: # change detected
-            #print(' '*50+str(old_icaos)+' '*50, end='\r')
-            for j in range(i, len(flights)):
-                if len(old_icaos)<=1:
-                    break
-                f2=flights[j]
-                if f2.dep_airport==f.dep_airport and f2.icao in old_icaos:
-                    ok=True
-                    for f3 in flights[i:j]:
-                        if f2.icao==f3.icao and f3.arr_airport==f2.dep_airport:
-                            ok=False
-                    if ok:
-                        old_icaos.remove(f2.icao)
-            #print(f.id, f.dep_airport.icao, old_icaos, check_time)
-            selected=random.choice(old_icaos) # select randomly icao
-            #print('selected '+selected+' among '+str(old_icaos))
-            #print('ids', ids)
-            if selected not in ids:
-                ids[selected]=len(ids) # associate an aircraft id to that icao
-            f.aircraft_id=ids[selected]
 
-            ids[f.icao]=ids[selected] # update aircraft_id - icao record
-            del ids[selected]
+        # get candidates for 'old' icao
+        check_time=time_add([f.dep_time, timedelta(microseconds=-1)])
+
+        if f.dep_airport.icao in [a.icao for a in lost_airports]:
+            # check lost airport
+            old_icaos=[ac.icao_at(check_time) for ap in lost_airports for ac in ap.aircraft_at(check_time) if ac.cat==f.aircraft_cat]
         else:
+            #old_icaos=[a.icao_at(check_time) for a in f.dep_airport.aircraft_at(check_time)]
+            old_icaos=[a.icao_at(check_time) for a in f.dep_airport.aircraft_at(check_time) if a.cat==f.aircraft_cat]
+
+        if f.icao in old_icaos:
+            # there was most probably no change
             if f.icao not in ids:
+                # unknown plane, add it
                 ids[f.icao]=len(ids)
-            f.aircraft_id=ids[f.icao]
-    return flights
-
-def get_seq(low, high, mod):
-    if low <= high:
-        seq=set(range(low, high+1))
-    else:
-        seq=set(range(low, mod+1))
-        seq.update(set(range(0,high+1)))
-    return seq
-
-# only works when starting sim on Jan01
-def solve_date_change(flights):
-    if policy not in ['20-days', '60-days']:
-        print('solve_date_change() not applicable on policy '+policy)
-        return
-    mod = int(policy[:2])
-    ids=dict() # icao -> id
-    for i in range(len(flights)):
-        f=flights[i]
-        check_time=time_add([f.dep_time, timedelta(milliseconds=-1)])
-        old_icaos=[a.icao_at(check_time) for a in f.dep_airport.aircraft_at(check_time)]
-        if len(old_icaos)>0 and f.icao not in old_icaos: # change detected
-            backup=deepcopy(old_icaos)
-
-            trial=list()
-            for icao in old_icaos:
-                arrival=0
-                for j in range(i-i, 0, -1):
-                    if flights[j].icao==icao:
-                        arrival=flights[j].arr_time.timetuple().tm_yday
-                departure=f.dep_time.timetuple().tm_yday
-                if arrival<departure-mod:
-                    arrival=departure+1
-                departure = departure % mod
-                arrival = arrival % mod
-                seq=get_seq(arrival, departure, mod)
-                if icao not in ids or ids[icao][1] is None or len(ids[icao][1]&seq)>0:
-                    trial.append(icao)
-                else:
-                    print('excluded')
-
-            #old_icaos=trial
-            unlucky=False
-            for j in range(i, len(flights)):
-                if len(old_icaos)<=1:
-                    unlucky=True
-                    break
-                f2=flights[j]
-                if f2.dep_airport==f.dep_airport and f2.icao in old_icaos and f2.dep_time <= time_add([f.dep_time, timedelta(days=mod)]):
-                    ok=True
-                    for f3 in flights[i:j]:
-                        if f2.icao==f3.icao and f3.arr_airport==f2.dep_airport:
-                            ok=False
-                    if ok:
-                        old_icaos.remove(f2.icao)
-
-            selected=random.choice(old_icaos) # select randomly icao
-            if selected not in ids:
-                unlucky=True
-                ids[selected]=[len(ids), None] # associate an aircraft id to that icao
-
-            #time attack
-            if len(old_icaos)==1 and not unlucky: # we're almost sure of the change
-                low=0
-                for j in range(i-1,0,-1):
-                    if flights[j].icao==selected: # arrival of aircraft at airport
-                        low=flights[j].arr_time.timetuple().tm_yday
-                        break
-                high=f.dep_time.timetuple().tm_yday
-                if low<high-mod:
-                    low=high+1
-                low = low % mod
-                high = high % mod
-
-                # define seq
-                seq=get_seq(low,high,mod)
-
-                if ids[selected][1] is None:
-                    ids[selected][1]=seq
-                else: # intersection
-                    ids[selected][1]&=seq
-
-            f.aircraft_id=ids[selected][0]
-
-            if unlucky:
-                ids[f.icao]=[ids[selected][0],None]
-            else:
-                ids[f.icao]=ids[selected] # update aircraft_id - icao record
-            del ids[selected]
         else:
-            if f.icao not in ids:
-                ids[f.icao]=[len(ids), None]
-            f.aircraft_id=ids[f.icao][0]
-    print(ids)
+            change_detected+=1
+            if len(old_icaos)==0:
+                print('error',i)
+                print([a.icao_at(check_time) for a in f.dep_airport.aircraft_at(check_time) if a.cat==f.aircraft_cat])
+                print([a.icao_at(check_time) for a in f.dep_airport.aircraft_at(check_time)])
+                print(f.dep_airport.icao)
+                print(f.dep_time)
+                print(correct_flights[i].aircraft_id)
+
+            if future_flights and len(old_icaos)>0:
+
+                if categories:
+                    # attack on targetting aircraft category
+                    j=i
+                    while j>0 and j>i-searchWindow and len(old_icaos)>1:
+                        j-=1
+                        if flights[j].icao in old_icaos and flights[j].arr_airport == f.dep_airport \
+                                and f.aircraft_cat != flights[j].aircraft_cat:
+                            old_icaos.remove(flights[j].icao)
+
+                # reduce old_icao by removing icao flying from the target airport in a close future
+                furthest=None
+                for j in range(i, int(min(i+searchWindow, len(flights)))):
+                    # iterate on future flights
+                    if len(old_icaos)==0:
+                        # if empty list, break with only the furthest flight in time
+                        old_icaos.append(furthest.icao)
+                        break
+                    f2=flights[j]
+                    if f2.dep_airport==f.dep_airport and f2.icao in old_icaos:
+                        ok=True
+                        for f3 in flights[i+1:j]: # not 100% accurate
+                            if f2.icao==f3.icao and f3.arr_airport==f2.dep_airport:
+                                ok=False
+                        if ok:
+                            # if f2 is farther in future than furthest, replace it
+                            if furthest is None or f2.dep_time > furthest.dep_time:
+                                furthest=f2
+                            old_icaos.remove(f2.icao)
+
+            # side channel attack improvement
+            if side_channel is not None:
+                cst=100
+                # get correct old icao
+                correct_icao=None
+                j=i
+                while j>0 and j>i-searchWindow:
+                    j-=1
+                    if correct_flights[i].aircraft_id == correct_flights[j].aircraft_id:
+                        correct_icao=correct_flights[j].icao
+                        break
+                my_list = [icao for icao in old_icaos]*cst
+                if correct_icao is not None:
+                    my_list += [correct_icao]*int(cst*side_channel)
+                selected = random.choice(my_list)
+            else:
+                # random choice
+                selected = random.choice(old_icaos)
+
+            if selected not in ids:
+                # aircraft never flew
+                ids[selected]=len(ids)
+            ids[f.icao]=ids[selected]
+            del ids[selected]
+        f.aircraft_id=ids[f.icao]
+
+        # add mapping
+        if correct_flights[i].aircraft_id not in mapping:
+            mapping[correct_flights[i].aircraft_id]=ids[f.icao]
+
+
+        if mapping[correct_flights[i].aircraft_id] != f.aircraft_id:
+            mistakes+=1
+            if debug:
+                print('Mistake with flight:')
+                print(correct_flights[i])
+                print('was attributed id',f.aircraft_id)
+                print('possible icaos were', old_icaos,'\n')
+        
     return flights
 
+# verify the correctness of a given prediction
+def verify(correct, prediction):
+    # check that the prediction has the same lenght as the correct sequence of flights
+    if len(correct)!=len(prediction):
+        print('Verification impossible')
+        return 0
+    
+    mapping=dict()
+    result=dict()
+    start=correct[0].dep_time.date()
+    max_time=(correct[-1].dep_time.date()-start).days
+    
+    for i in range(len(correct)):
+        if correct[i].aircraft_id not in mapping:
+            # mapping doesn't exist yet, add it
+            mapping[correct[i].aircraft_id]=prediction[i].aircraft_id
+            result[correct[i].aircraft_id]=max_time
+        elif prediction[i].aircraft_id != mapping[correct[i].aircraft_id] and \
+                result[correct[i].aircraft_id] == max_time:
+            # first mistake, update successful number of days
+            result[correct[i].aircraft_id] = (correct[i].dep_time.date() - start).days
+        # ignore the rest (multiple mistakes)
 
+    return result
+
+def multiple_sim(n=1, mode='random', policy='max_privacy', airports=None, \
+        n_aircraft=100, flight_frequency=0.31, n_categories=1, \
+        simlength=timedelta(days=30), future_flights=True, side_channel=None, \
+        categories=True, lost_airports_n=0, searchWindow=30/0.31, \
+        record_file='records/record.txt',label='No label'):
+
+    statement="Starting new simulation"
+    status=" "
+    print(statement,end="\r")
+
+    results=list()
+    for i in range(n):
+        # create the random flight list by simulation
+        flights = get_flights(mode=mode, policy=policy, airports=airports, \
+            n_aircraft=n_aircraft, flight_frequency=flight_frequency, \
+            n_categories=n_categories, simlength=simlength)
+        # attack to track aircraft
+        guess = generic_attack(flights, future_flights=future_flights, \
+            side_channel=side_channel, categories=categories, \
+            lost_airports_n=lost_airports_n, searchWindow=searchWindow)
+        # verify correctness of the guess
+        results.append(verify(flights, guess))
+        if i%10==9:
+            status+='|'
+        else:
+            status+='.'
+        print(statement+status,end="\r")
+
+    # get average of the n simulations
+    final=[0]*simlength.days
+    for result in results:
+        count=dict()
+        for aid in result:
+            if result[aid] not in count:
+                count[result[aid]]=0
+            count[result[aid]]+=1
+        data = [1.0]
+        for i in range(simlength.days):
+            m=0
+            if i in count:
+                m=count[i]
+            data.append(data[i]-(m/len(result)))
+            final[i]+=data[-1]
+    final=[e/n for e in final]
+    # write average to file
+    to_file(record_file, final)
+    # plot average
+    plt.plot(final, label=label)
+
+    print(statement+status+" done!")
+
+# plot results of simulations
+def plot_results(legend='Example legend', graphfile='graphs/graph.pdf'):
+    graph=plt.gca()
+    graph.set_xlim([0,simlength.days*1.05])
+    graph.set_ylim([0,1.05])
+    graph.legend(title=legend)
+    graph.set_xlabel('Days')
+    graph.set_ylabel('Traceability index')
+    plt.savefig(graphfile)
+
+# write data to file
+def to_file(filename, struct):
+    f = open(filename, 'a')
+    f.write(str(struct)+'\n')
+    f.close()
+
+# print flights for debug
 def print_flights(flights):
     for f in flights:
         print(f)
 
-def debug():
-    dis = Distribution(mode=mode, policy=policy, airports=airports, \
-        n_aircraft=n_aircraft, flight_frequency=flight_frequency)
-
-    flights=dis.run(simlength)
-    f=flights[3776]
-    print(f)
-    print()
-
-    check_time=time_add([f.dep_time, timedelta(milliseconds=-1)])
-    string=''
-    for a in f.dep_airport.aircraft_at(check_time):
-        string += a.icao_at(check_time)+' '
-    print(string)
-
-    print(f.dep_airport.aircraft_at(check_time)[0])
-
-    for h in f.dep_airport.aircraft_history:
-        print(h)
-
-    for a in dis.aircraft:
-        if a.id==f.aircraft_id:
-            ac=a
-            break
-    ac.print_flights()
+debug=False
+random.seed('random')
 
 if __name__ == '__main__':
-    # take a list of initial aircraft with icaos from get_flights() to use in attacks
-    #debug()
-    
-    #"""
-    aircraft, flights = get_flights()
-    
-    #print_flights(flights)
 
-    prediction=solve_date_change(get_anonymized_flights(flights))
-    success=verify(flights=flights, prediction=prediction)*100
-    print('  %.2f%% of success' % success)
+    ### PARAMETER DEFINITION ###
 
-    prediction=solve_location_future(get_anonymized_flights(flights),aircraft)
-    #print_flights(prediction)
-    
-    #prediction=solve_no_privacy(get_anonymized_flights(flights))
-    success=verify(flights=flights, prediction=prediction)*100
-    print('  %.2f%% of success' % success)
-    #"""
+    # Simulation mode (other simulation modes not available yet)
+    mode='random'
+    # Number of aircraft in the simulation
+    n_aircraft=100
+    # Airports in the simulation (taken from lists in data/ )
+    airports=airports_from_file('large').first(100)
+    # Distinct categories of aircraft an adversary can distinguish
+    n_categories=1
+    # Average flight frequency of aircraft (flight per day per aircraft)
+    flight_frequency=0.31
+    # Duration of the simulation
+    simlength=timedelta(days=365)
+    # PIA update policy (available policies 'no_privacy', '{int}-days', 
+    # '{int}-days-simultaneous', 'callsign-change', 'max_privacy')
+    policy = '60-days'
+    # Filename of the record file containing the average privacy index values
+    record_file='records/60-days.txt'
+    # Label of the simulation curve on the graph
+    label='60 days'
+
+    ### SIMULATION 1 ###
+
+    multiple_sim(n=2, mode=mode, policy=policy, airports=airports, \
+        n_aircraft=n_aircraft, flight_frequency=flight_frequency, \
+        n_categories=n_categories, simlength=simlength, \
+        record_file=record_file, label=label)
+
+    ### UPDATE PARAMETERS ###
+
+    policy = '28-days'
+    #record_file='records/28-days.txt'
+    label='28 days'
+
+    ### SIMULATION 2 ###
+
+    multiple_sim(n=2, mode=mode, policy=policy, airports=airports, \
+        n_aircraft=n_aircraft, flight_frequency=flight_frequency, \
+        n_categories=n_categories, simlength=simlength, \
+        record_file=record_file, label=label)
+
+    ### PLOT RESULTS ###
+
+    plot_results(legend='PIA update frequency', graphfile='graphs/update_freq.pdf')

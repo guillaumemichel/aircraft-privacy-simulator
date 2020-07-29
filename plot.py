@@ -1,9 +1,14 @@
 from matplotlib import pyplot as plt
 
-filename='records/max_privacy.txt'
+# filename of the source record file
+filename='records/update_freq.txt'
 
-parameter = 'PIA update frequency'
-legends=['60 days', '28 days', 'each flight']
+# graph legend
+legend = 'PIA update frequency'
+# filename of the exported graph
+graph_filename='graphs/update_freq.pdf'
+# legend for each curve
+legends=['60 days', '28 days']
 
 f=open(filename, 'r')
 data=f.read()
@@ -21,12 +26,11 @@ if len(curves)!=len(legends):
 for i in range(len(curves)):
     plt.plot(curves[i],label=legends[i])
 
+# plot graph
 graph=plt.gca()
-#graph.set_title('Tracked aircraft over time')
 graph.set_xlim([0,len(curves[0])*1.05])
-#graph.set_ylim([0,n_aircraft*1.1])
 graph.set_ylim([0,1.05])
-graph.legend(title=parameter)
+graph.legend(title=legend)
 graph.set_xlabel('Days')
 graph.set_ylabel('System traceability index')
-plt.savefig('graphs/graphtest.pdf')    
+plt.savefig(graph_filename)    
