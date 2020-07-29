@@ -261,7 +261,7 @@ if __name__ == '__main__':
     # '{int}-days-simultaneous', 'callsign-change', 'max_privacy')
     policy = '60-days'
     # Filename of the record file containing the average privacy index values
-    record_file='records/60-days.txt'
+    record_file='records/update_freq.txt'
     # Label of the simulation curve on the graph
     label='60 days'
 
