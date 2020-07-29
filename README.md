@@ -52,6 +52,62 @@ You can then modify the Simulation parameters in [attack.py](attack.py) to get a
 
 ### Modifying simulation parameters
 
+#### Mode
+
+```python
+# Simulation mode (other simulation modes not available yet)
+mode='random'
+```
+Simulation mode to simulate flights. Only _random_ mode available yet, more realistic flight models may be added.
+
+#### Aircraft Number
+```python
+# Number of aircraft in the simulation
+n_aircraft=100
+```
+
+Number of aircraft in the simulation. All aircraft use the same call sign and ICAO address range. The global privacy level increases when the number of simulated aircraft grows.
+
+#### Airports
+```python
+# Airports in the simulation (taken from lists in data/ )
+airports=airports_from_file('large').first(100)
+```
+Set of airports used by the simulation. [data/](data/) contains 3 lists of airports _small_, _medium_ and _large_ airports located in the US. The given line takes the 100 first airports from the list of _large_ US airports. The global privacy level decreases when the number of airports in the set grows.
+
+#### Number of aircraft categories
+
+```python
+# Distinct categories of aircraft an adversary can distinguish
+n_categories=1
+```
+
+An attacker could be able to distinguish among multiple aircraft types as described in [4]. This parameter represents the number of aircraft types an adversary is able to distinguish by looking at basic ADS-B transmissions, such as acceleration, velocity etc. The global privacy level decreases when the number of aircraft categories that an adversary can distinguish grows.
+
+#### Flight frequency
+
+```python
+# Average flight frequency of aircraft (flight per day per aircraft)
+flight_frequency=0.31
+```
+```python
+# Duration of the simulation
+simlength=timedelta(days=365)
+```
+```python
+# PIA update policy (available policies 'no_privacy', '{int}-days', 
+# '{int}-days-simultaneous', 'callsign-change', 'max_privacy')
+policy = '60-days'
+```
+```python
+# Filename of the record file containing the average privacy index values
+record_file='records/update_freq.txt'
+```
+```python
+# Label of the simulation curve on the graph
+label='60 days'
+```
+
 ### Modifying the attack
 
 Feel free to improve the attack, for example by tracking the flying patterns of aircraft.
@@ -60,5 +116,6 @@ Feel free to improve the attack, for example by tracking the flying patterns of 
 [1] FAA - ADS-B Privacy - https://www.faa.gov/nextgen/equipadsb/privacy/ <br/>
 [2] OpenSky Network - https://opensky-network.org/ <br/>
 [3] Traffic - Installation - https://traffic-viz.github.io/installation.html
+[4] M. Strohmeier, M. Smith, V. Lenders, and I. Martinovic, “Classi-fly: Inferring aircraftcategories from open data,”arXiv preprint arXiv:1908.01061, August 2019.
 
 Contact: guillaume.michel@epfl.ch
