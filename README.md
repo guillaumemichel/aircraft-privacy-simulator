@@ -56,9 +56,9 @@ You can then modify the Simulation parameters in [attack.py](attack.py) to get a
 
 Feel free to improve the attack, for example by tracking the flying patterns of aircraft.
 
-Contact: guillaume.michel@epfl.ch
-
-### Useful resources:
+## Useful resources:
 [1] FAA - ADS-B Privacy - https://www.faa.gov/nextgen/equipadsb/privacy/ <br/>
 [2] OpenSky Network - https://opensky-network.org/ <br/>
 [3] Traffic - Installation - https://traffic-viz.github.io/installation.html
+
+Contact: guillaume.michel@epfl.ch
